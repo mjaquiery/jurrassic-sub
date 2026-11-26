@@ -237,3 +237,10 @@ button {
     height: 80px;
   }
 }
+@media (prefers-reduced-motion: reduce) {
+  #go,
+  #hint,
+  #card {
+    animation: none;
+  }
+}

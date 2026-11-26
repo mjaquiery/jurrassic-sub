@@ -7,6 +7,7 @@ export default defineConfig({
   use: {
     ...devices['iPad Pro 11 landscape'],
     browserName: 'chromium',
+    reducedMotion: 'reduce',
     baseURL: 'http://localhost:4173/',
     // Software WebGL so the 3D scene renders on CI runners without a GPU.
     launchOptions: { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] },
