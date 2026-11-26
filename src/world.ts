@@ -125,11 +125,11 @@ export class World {
   }
 
   private addShafts(scene: THREE.Scene, rand: () => number) {
-    const geo = new THREE.CylinderGeometry(6, 1.5, 60, 12, 1, true);
+    const geo = new THREE.CylinderGeometry(14, 3, 90, 12, 1, true);
     const p = geo.attributes.position;
     const col = new Float32Array(p.count * 3);
     for (let i = 0; i < p.count; i++) {
-      const k = Math.max(0, p.getY(i) / 60 + 0.5); // bright at the top, black (invisible when additive) below
+      const k = Math.max(0, p.getY(i) / 90 + 0.5); // bright at the top, black (invisible when additive) below
       col.fill(k * k, i * 3, i * 3 + 3);
     }
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
@@ -137,7 +137,7 @@ export class World {
       vertexColors: true,
       color: 0xbfeeff,
       transparent: true,
-      opacity: 0.14,
+      opacity: 0.06,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       side: THREE.DoubleSide,
@@ -147,7 +147,7 @@ export class World {
       const s = new THREE.Mesh(geo, material);
       const a = rand() * Math.PI * 2;
       const r = 15 + rand() * 70;
-      s.position.set(Math.cos(a) * r, -30, Math.sin(a) * r);
+      s.position.set(Math.cos(a) * r, -5, Math.sin(a) * r);
       s.rotation.z = 0.25;
       s.userData.phase = rand() * 6;
       scene.add(s);

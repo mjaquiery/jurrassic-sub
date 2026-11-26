@@ -248,9 +248,9 @@ function stepSub(dt: number) {
 
 function followCamera(dt: number) {
   const s = subState;
-  const back = new THREE.Vector3(-Math.cos(s.yaw), 0, Math.sin(s.yaw)).multiplyScalar(7.5);
+  const back = new THREE.Vector3(-Math.cos(s.yaw), 0, Math.sin(s.yaw)).multiplyScalar(9);
   want.copy(sub.position).add(back);
-  want.y += 2.6 - s.pitch * 3;
+  want.y += 3.4 - s.pitch * 3;
   if (!camReady) camPos.copy(want);
   camPos.lerp(want, 1 - Math.exp(-4 * dt));
   camera.position.copy(camPos);

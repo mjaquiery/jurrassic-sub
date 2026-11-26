@@ -143,7 +143,8 @@ function plesiosaur({ color, belly, neckSegs, segLen }: PlesiOpts): THREE.Group 
   anim(tail, 'y', 0.3, 3);
   let p: P = pivot(g, 1.2, 0.35, 0);
   for (let i = 0; i < neckSegs; i++) {
-    p.rotation.z = i < neckSegs / 2 ? 0.34 : -0.34;
+    const bend = 1.0 / (neckSegs / 2);
+    p.rotation.z = i < neckSegs / 2 ? bend : -bend;
     anim(p, 'y', 0.12, 1.6, i * 0.5);
     const r = 0.5 - (i / neckSegs) * 0.22;
     blob(p, color, segLen * 0.62, r, r, segLen * 0.5, 0, 0);
