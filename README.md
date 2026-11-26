@@ -11,7 +11,8 @@ A gentle 3D underwater game for a three-year-old (and their grown-ups). Pilot a 
 - Press the dashboard screen to look down at it: a portrait, simple facts, who it eats and who eats it, and a pointer to the real fossils at the Oxford University Museum of Natural History.
 - Tap or bump something and it wiggles, makes a noise, and swims off.
 - Animals hunt, flee and graze on their own: a catch is either a cartoon gulp (the eaten one pops like a bubble and returns elsewhere) or a lucky escape. Plants get nibbled and grow back.
-- A glowing striped wall appears at the edge of each zone.
+- A glowing striped wall appears at the edge of each zone; touch it and you boing back in.
+- Let go and the sub drifts down to just above the sea floor, where the plants and most animals are.
 - No scores, timers, failure or reading needed.
 
 ## Tech

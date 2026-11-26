@@ -51,7 +51,9 @@
 
     <div id="info" hidden>
       <div id="info-box">
-        <button id="info-close" aria-label="Close">✕</button>
+        <button id="info-close" aria-label="Close">
+          <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 1 9 9M9 1 1 9" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" /></svg>
+        </button>
         <img id="info-img" alt="" />
         <div id="info-text">
           <h1 id="info-name"></h1>
@@ -66,6 +68,11 @@
       <div id="regions"></div>
       <p>Oxford, 165 million years ago</p>
       <small id="version"></small>
+    </div>
+
+    <div id="loading" hidden>
+      <div id="loading-emoji"></div>
+      <div class="dots"><i></i><i></i><i></i></div>
     </div>
 
     <script type="module" src="/src/main.ts"></script>

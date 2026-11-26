@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { edgeGlow, pickTarget, resolveCatch, steerInput, seabedY, WORLD_RADIUS, type Candidate } from '../src/logic';
+import { bounceYaw, edgeGlow, pickTarget, resolveCatch, steerInput, seabedY, WORLD_RADIUS, type Candidate } from '../src/logic';
 import { SPECIES, dietLines } from '../src/species';
 import { REGIONS } from '../src/regions';
 import { Creature, spawnCreatures } from '../src/creatures';
@@ -101,6 +101,16 @@ describe('boundary and catching', () => {
     expect(edgeGlow(WORLD_RADIUS - 30)).toBe(0);
     expect(edgeGlow(WORLD_RADIUS - 12)).toBeGreaterThan(0.3);
     expect(edgeGlow(WORLD_RADIUS)).toBe(1);
+  });
+  it('bounces off the wall back inwards', () => {
+    // Heading straight out along +x at the east wall: comes straight back.
+    expect(Math.cos(bounceYaw(0, WORLD_RADIUS, 0))).toBeCloseTo(-1);
+    // A glancing blow keeps its sideways motion but turns inwards.
+    const y = bounceYaw(-Math.PI / 4, WORLD_RADIUS, 0);
+    expect(Math.cos(y)).toBeLessThan(0);
+    expect(-Math.sin(y)).toBeCloseTo(Math.SQRT1_2);
+    // Already heading in: unchanged.
+    expect(bounceYaw(Math.PI, WORLD_RADIUS, 0)).toBe(Math.PI);
   });
   it('resolves catches by dice roll', () => {
     expect(resolveCatch(false, 0.2)).toBe('predator');

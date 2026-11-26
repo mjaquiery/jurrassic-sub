@@ -74,3 +74,23 @@ export function edgeGlow(r: number): number {
   const k = Math.min(1, Math.max(0, (r - (WORLD_RADIUS - 24)) / 24));
   return k * k * (3 - 2 * k);
 }
+
+/**
+ * Bounce a heading off the circular zone wall: mirror it about the wall's normal at (x, z).
+ * Yaw follows the sub's convention: forward is (cos yaw, -sin yaw) in x/z.
+ */
+export function bounceYaw(yaw: number, x: number, z: number): number {
+  const r = Math.hypot(x, z) || 1;
+  const nx = x / r;
+  const nz = z / r;
+  let hx = Math.cos(yaw);
+  let hz = -Math.sin(yaw);
+  const d = hx * nx + hz * nz;
+  if (d <= 0) return yaw; // already heading inwards
+  hx -= 2 * d * nx;
+  hz -= 2 * d * nz;
+  return Math.atan2(-hz, hx);
+}
+
+/** Height the sub drifts towards when nobody is steering: low, where the interesting things live. */
+export const CRUISE_ABOVE_FLOOR = 9;

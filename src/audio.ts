@@ -179,6 +179,12 @@ export class Sound {
     this.tone({ type: 'sine', f0: 140, f1: 60, dur: 0.25, vol: 0.16 });
   }
 
+  /** Springy boing when the sub bounces off the edge of the zone. */
+  boing() {
+    this.tone({ type: 'sine', f0: 160, f1: 520, dur: 0.18, vol: 0.2, vibrato: 18 });
+    this.tone({ type: 'sine', f0: 520, f1: 260, dur: 0.3, vol: 0.14, delay: 0.16, vibrato: 12 });
+  }
+
   /** Cartoon gulp: two quick swallows. */
   gulp() {
     this.tone({ type: 'sine', f0: 420, f1: 120, dur: 0.18, vol: 0.2 });

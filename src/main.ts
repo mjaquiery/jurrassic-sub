@@ -4,7 +4,7 @@ import { Sound } from './audio';
 import { spawnCreatures, type Creature } from './creatures';
 import { Ecology } from './ecology';
 import { Fx } from './fx';
-import { pickTarget, steerInput, seabedY, SURFACE_Y, WORLD_RADIUS, type Candidate } from './logic';
+import { bounceYaw, CRUISE_ABOVE_FLOOR, pickTarget, steerInput, seabedY, SURFACE_Y, WORLD_RADIUS, type Candidate } from './logic';
 import { renderPortrait } from './portrait';
 import { REGIONS, type Region } from './regions';
 import { MUSEUM, SPECIES, dietLines, type Species } from './species';
@@ -80,7 +80,7 @@ const sub = buildSub();
 sub.traverse((o) => ((o as THREE.Mesh).isMesh ? (o.visible = false) : undefined));
 scene.add(sub);
 const subState = { yaw: Math.PI / 2, pitch: 0, speed: 0, roll: 0 };
-sub.position.set(0, -16, 0);
+sub.position.set(0, -30, 0);
 const MAX_SPEED = 7;
 
 // ---- regions -------------------------------------------------------------------
@@ -102,7 +102,7 @@ function loadRegion(r: Region) {
   ecology = new Ecology(creatures, fx, sound, camera, sub);
   current = null;
   showTarget(null);
-  sub.position.set(0, -16, 0);
+  sub.position.set(0, -30, 0);
   Object.assign(subState, { yaw: Math.PI / 2, pitch: 0, speed: 0, roll: 0 });
 }
 
@@ -234,6 +234,7 @@ function identify(now: number) {
 const fwd = new THREE.Vector3();
 const want = new THREE.Vector3();
 let nextEdgeBump = 0;
+const nextPaint = () => new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok)));
 let lookDown = 0;
 let last = performance.now();
 let started = false;
@@ -250,19 +251,25 @@ function stepSub(dt: number) {
     s.speed *= Math.exp(-1.1 * dt);
     s.pitch *= Math.exp(-0.4 * dt);
     s.roll *= Math.exp(-3 * dt);
+    // Left alone, the sub settles down near the sea floor, where the interesting things are.
+    const cruise = seabedY(sub.position.x, sub.position.z) + CRUISE_ABOVE_FLOOR;
+    sub.position.y += (cruise - sub.position.y) * Math.min(1, dt * 0.35);
   }
   fwd.set(Math.cos(s.pitch) * Math.cos(s.yaw), Math.sin(s.pitch), -Math.cos(s.pitch) * Math.sin(s.yaw));
   sub.position.addScaledVector(fwd, s.speed * dt);
   sub.position.y = THREE.MathUtils.clamp(sub.position.y, seabedY(sub.position.x, sub.position.z) + 1.5, SURFACE_Y);
   const r = Math.hypot(sub.position.x, sub.position.z);
   if (r > WORLD_RADIUS) {
-    // The boundary wall glows as you approach; here you just stop, with a soft thump.
-    sub.position.x *= WORLD_RADIUS / r;
-    sub.position.z *= WORLD_RADIUS / r;
-    s.speed *= 0.6;
+    // The boundary wall glows as you approach; touching it bounces you back in like a rubber wall.
+    s.yaw = bounceYaw(s.yaw, sub.position.x, sub.position.z);
+    sub.position.x *= (WORLD_RADIUS - 0.5) / r;
+    sub.position.z *= (WORLD_RADIUS - 0.5) / r;
+    s.speed = Math.max(s.speed, 5);
+    s.roll += Math.random() < 0.5 ? 0.6 : -0.6;
     if (performance.now() > nextEdgeBump) {
-      nextEdgeBump = performance.now() + 1500;
-      sound.bump();
+      nextEdgeBump = performance.now() + 400;
+      sound.boing();
+      fx.burst(sub.position.clone().addScaledVector(fwd, -2), 6, 'bubble', 1.2);
     }
   }
   sub.rotation.set(s.roll, s.yaw, s.pitch, 'XYZ');
@@ -335,13 +342,22 @@ for (const r of REGIONS) {
   b.dataset.region = r.id;
   b.setAttribute('aria-label', r.name);
   b.innerHTML = `<span class="em">${r.emoji}</span><span>${r.name}</span>`;
-  b.addEventListener('click', () => {
+  b.addEventListener('click', async () => {
     if (!soundOn) {
       sound.start();
       soundOn = true;
       document.documentElement.requestFullscreen?.().catch(() => {});
     }
+    // Building a region and compiling its shaders stalls for a moment, so show something first.
+    $('loading-emoji').textContent = r.emoji;
+    $('loading').hidden = false;
+    $('start').hidden = true;
+    await nextPaint();
     if (r !== region) loadRegion(r);
+    placeCamera(0);
+    renderer.compile(scene, camera);
+    renderer.render(scene, camera);
+    $('loading').hidden = true;
     $('start').hidden = true;
     $('hud').hidden = false;
     started = true;

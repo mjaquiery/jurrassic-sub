@@ -1,4 +1,11 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+
+/** Pick a dive site and wait for the loading screen to go. */
+async function dive(page: Page, region: string) {
+  await page.click(`[data-region="${region}"]`);
+  await expect(page.locator('#loading')).toBeHidden();
+  await expect(page.locator('#hud')).toBeVisible();
+}
 
 test('dive, find a creature, read about it', async ({ page }) => {
   const errors: string[] = [];
@@ -9,7 +16,7 @@ test('dive, find a creature, read about it', async ({ page }) => {
   await expect(page.locator('.region')).toHaveCount(3);
   await expect(page.locator('#version')).toHaveText(/^v\d+\.\d+\.\d+$/);
   await page.screenshot({ path: 'shots/1-start.png' });
-  await page.click('[data-region="clay-bay"]');
+  await dive(page, 'clay-bay');
   await expect(page.locator('#start')).toBeHidden();
 
   // Steer by dragging; the sub should move.
@@ -58,7 +65,7 @@ test('dive, find a creature, read about it', async ({ page }) => {
 
 test('every portrait renders', async ({ page }) => {
   await page.goto('/');
-  await page.click('[data-region="clay-bay"]');
+  await dive(page, 'clay-bay');
   await page.evaluate(() => {
     const g = (window as any).__jsub;
     // Line the whole cast up in front of the camera for a gallery shot.
@@ -75,7 +82,7 @@ test('every portrait renders', async ({ page }) => {
 
 test('plants can be inspected too', async ({ page }) => {
   await page.goto('/');
-  await page.click('[data-region="clay-bay"]');
+  await dive(page, 'clay-bay');
   await page.evaluate(() => {
     const g = (window as any).__jsub;
     const c = g.creatures.find((x: any) => x.sp.id === 'sponge');
@@ -95,7 +102,7 @@ test('plants can be inspected too', async ({ page }) => {
 
 test('boundary wall shows at the edge, and regions switch', async ({ page }) => {
   await page.goto('/');
-  await page.click('[data-region="clay-bay"]');
+  await dive(page, 'clay-bay');
   await page.evaluate(() => {
     const g = (window as any).__jsub;
     g.sub.position.set(80, -20, 0);
@@ -106,8 +113,18 @@ test('boundary wall shows at the edge, and regions switch', async ({ page }) => 
   });
   await page.waitForTimeout(1500);
   await page.screenshot({ path: 'shots/8-boundary.png' });
+  // Drive into the wall: it should bounce us back inwards.
+  await page.evaluate(() => {
+    const g = (window as any).__jsub;
+    g.sub.position.set(89.9, -30, 0);
+    g.subState.yaw = 0;
+    g.subState.speed = 7;
+  });
+  // Software WebGL can be a few frames per second, so poll rather than wait a fixed time.
+  await expect.poll(() => page.evaluate(() => Math.cos((window as any).__jsub.subState.yaw)), { timeout: 15_000 }).toBeLessThan(0);
   await page.click('#map');
-  await page.click('[data-region="deep-blue"]');
+  await page.screenshot({ path: 'shots/10-menu-again.png' });
+  await dive(page, 'deep-blue');
   expect(await page.evaluate(() => (window as any).__jsub.region)).toBe('deep-blue');
   await page.waitForTimeout(1500);
   await page.screenshot({ path: 'shots/9-deep-blue.png' });

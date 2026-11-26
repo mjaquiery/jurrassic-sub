@@ -78,7 +78,8 @@ export class Creature {
   private pickDepth(x: number, z: number) {
     const floor = seabedY(x, z) + this.radius * 0.8 + 2;
     const top = SURFACE_Y - this.radius * 0.6 - 2;
-    return floor + Math.random() * Math.max(1, top - floor);
+    // Squared so most creatures stay down near the sea floor, where the plants are.
+    return floor + Math.random() ** 2 * Math.max(1, top - floor);
   }
 
   randomSpot(): [number, number] {
