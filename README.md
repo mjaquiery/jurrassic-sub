@@ -5,16 +5,20 @@ A gentle 3D underwater game for a three-year-old (and their grown-ups). Pilot a 
 **Play:** https://mjaquiery.github.io/jurrassic-sub/ — on an iPad, use Share → Add to Home Screen for a fullscreen, offline copy.
 
 ## How it plays
-- Touch and hold anywhere: the sub glides towards where you point. Let go and it drifts to a stop.
-- Bring a creature to the middle of the screen (the dotted circle) and a portrait pops up with its name.
-- Press the portrait for simple facts (and a pointer to the real fossils at the Oxford University Museum of Natural History).
-- Tap or bump a creature and it does a barrel roll, makes a noise, and swims off.
+- Pick a dive site on the start screen: Clay Bay, Coral Garden or Deep Blue (🗺️ in the corner goes back to the menu).
+- You look out from inside the sub (a little 1 m kid sits beside you for scale). Touch and hold anywhere on the window: the sub glides towards where you point. Let go and it drifts to a stop.
+- Bring a creature or plant to the middle of the screen (the dotted circle) and it shows up on the dashboard screen.
+- Press the dashboard screen to look down at it: a portrait, simple facts, who it eats and who eats it, and a pointer to the real fossils at the Oxford University Museum of Natural History.
+- Tap or bump something and it wiggles, makes a noise, and swims off.
+- Animals hunt, flee and graze on their own: a catch is either a cartoon gulp (the eaten one pops like a bubble and returns elsewhere) or a lucky escape. Plants get nibbled and grow back.
+- A glowing striped wall appears at the edge of each zone.
 - No scores, timers, failure or reading needed.
 
 ## Tech
 Vite + TypeScript + Three.js, deployed to GitHub Pages by `.github/workflows/deploy.yml` (`main` → site root, pull requests → `/stage`). A generated service worker precaches everything so it works offline.
 
-- Creatures are built in code from low-poly shapes (`src/species.ts`), so there are no model licences to track.
+- Creatures and plants are built in code from low-poly shapes (`src/species.ts`), so there are no model licences to track. The food web is the `FOOD_WEB` table there; dive sites are in `src/regions.ts`; hunting, grazing and respawning is `src/ecology.ts`.
+- One world unit is roughly a metre.
 - Portraits are rendered from those same models at start-up (`src/portrait.ts`).
 - All sound and music is synthesised with WebAudio (`src/audio.ts`): no audio files.
 

@@ -179,6 +179,17 @@ export class Sound {
     this.tone({ type: 'sine', f0: 140, f1: 60, dur: 0.25, vol: 0.16 });
   }
 
+  /** Cartoon gulp: two quick swallows. */
+  gulp() {
+    this.tone({ type: 'sine', f0: 420, f1: 120, dur: 0.18, vol: 0.2 });
+    this.tone({ type: 'sine', f0: 320, f1: 90, dur: 0.16, vol: 0.18, delay: 0.16 });
+  }
+
+  /** Bubble popping. */
+  pop() {
+    this.tone({ type: 'triangle', f0: 1500, f1: 300, dur: 0.07, vol: 0.2, delay: 0.1 });
+  }
+
   voice(kind: VoiceKind, base: number) {
     switch (kind) {
       case 'whistle':

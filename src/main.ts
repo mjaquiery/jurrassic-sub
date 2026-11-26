@@ -2,10 +2,12 @@ import * as THREE from 'three';
 import './style.css';
 import { Sound } from './audio';
 import { spawnCreatures, type Creature } from './creatures';
+import { Ecology } from './ecology';
 import { Fx } from './fx';
 import { pickTarget, steerInput, seabedY, SURFACE_Y, WORLD_RADIUS, type Candidate } from './logic';
 import { renderPortrait } from './portrait';
-import { MUSEUM, SPECIES, type Species } from './species';
+import { REGIONS, type Region } from './regions';
+import { MUSEUM, SPECIES, dietLines, type Species } from './species';
 import { World } from './world';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -22,7 +24,7 @@ const canvas = $<HTMLCanvasElement>('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(65, 1, 0.1, 200);
+const camera = new THREE.PerspectiveCamera(70, 1, 0.1, 200);
 function resize() {
   renderer.setSize(window.innerWidth, window.innerHeight, false);
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -32,11 +34,10 @@ window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', resize);
 resize();
 
-const world = new World(scene);
 const fx = new Fx(scene);
-const creatures = spawnCreatures();
-for (const c of creatures) scene.add(c.obj);
 const sound = new Sound();
+// Distance beyond which plants are hidden: the fog has swallowed them anyway.
+const PLANT_CULL = 85;
 
 // ---- the sub -----------------------------------------------------------------
 function buildSub() {
@@ -75,12 +76,35 @@ function buildSub() {
   return g;
 }
 const sub = buildSub();
+// First person: we look out from inside, so hide the hull but keep the lamp.
+sub.traverse((o) => ((o as THREE.Mesh).isMesh ? (o.visible = false) : undefined));
 scene.add(sub);
 const subState = { yaw: Math.PI / 2, pitch: 0, speed: 0, roll: 0 };
 sub.position.set(0, -16, 0);
 const MAX_SPEED = 7;
-const camPos = new THREE.Vector3();
-let camReady = false;
+
+// ---- regions -------------------------------------------------------------------
+let world: World | undefined;
+let creatures: Creature[] = [];
+let ecology: Ecology;
+let region = REGIONS[0];
+let current: Creature | null = null;
+let lostAt = 0;
+let paused = false;
+
+function loadRegion(r: Region) {
+  world?.dispose();
+  for (const c of creatures) scene.remove(c.obj);
+  region = r;
+  world = new World(scene, r);
+  creatures = spawnCreatures(r);
+  for (const c of creatures) scene.add(c.obj);
+  ecology = new Ecology(creatures, fx, sound, camera, sub);
+  current = null;
+  showTarget(null);
+  sub.position.set(0, -16, 0);
+  Object.assign(subState, { yaw: Math.PI / 2, pitch: 0, speed: 0, roll: 0 });
+}
 
 // ---- input: touch anywhere to glide towards where you point --------------------
 const touch = { active: false, x: 0, y: 0, sx: 0, sy: 0, t0: 0 };
@@ -131,18 +155,28 @@ function startle(c: Creature, kind: 'tap' | 'bump') {
 
 // ---- identification UI ---------------------------------------------------------
 const portraits = new Map<string, string>();
-const card = $<HTMLButtonElement>('card');
+const screen = $<HTMLButtonElement>('screen');
 const reticle = $('reticle');
-let current: Creature | null = null;
-let lostAt = 0;
-let paused = false;
+
+/** The dashboard screen shows the creature in the reticle; pressing it makes you look down for details. */
+function showTarget(c: Creature | null) {
+  screen.disabled = !c;
+  screen.classList.toggle('live', c !== null);
+  if (!c) return;
+  $<HTMLImageElement>('screen-img').src = portraits.get(c.sp.id)!;
+  $('screen-name').textContent = c.sp.name;
+  // Restart the pop-in animation.
+  screen.classList.remove('ping');
+  void screen.offsetWidth;
+  screen.classList.add('ping');
+}
 
 function openInfo(sp: Species) {
   paused = true;
   $<HTMLImageElement>('info-img').src = portraits.get(sp.id)!;
   $('info-name').textContent = sp.name;
   const ul = $('info-facts');
-  ul.replaceChildren(...sp.facts.map((f) => Object.assign(document.createElement('li'), { textContent: f })));
+  ul.replaceChildren(...[...sp.facts, ...dietLines(sp)].map((f) => Object.assign(document.createElement('li'), { textContent: f })));
   $('info-museum').textContent = '🏛️ ' + MUSEUM;
   $('info').hidden = false;
 }
@@ -150,7 +184,7 @@ function closeInfo() {
   $('info').hidden = true;
   paused = false;
 }
-card.addEventListener('click', () => current && openInfo(current.sp));
+screen.addEventListener('click', () => current && openInfo(current.sp));
 $('info').addEventListener('click', closeInfo);
 $('mute').addEventListener('click', () => {
   sound.setMuted(!sound.isMuted);
@@ -181,13 +215,7 @@ function identify(now: number) {
     lostAt = 0;
     if (current?.id !== id) {
       current = creatures[id];
-      $<HTMLImageElement>('card-img').src = portraits.get(current.sp.id)!;
-      $('card-name').textContent = current.sp.name;
-      card.hidden = false;
-      // Restart the pop-in animation.
-      card.style.animation = 'none';
-      void card.offsetWidth;
-      card.style.animation = '';
+      showTarget(current);
       sound.chime();
       current.trigger('hello', sub.position);
       fx.burst(current.position, 3, 'heart', Math.max(1, current.radius * 0.3));
@@ -196,7 +224,7 @@ function identify(now: number) {
     lostAt ||= now;
     if (now - lostAt > 0.6) {
       current = null;
-      card.hidden = true;
+      showTarget(null);
     }
   }
   reticle.classList.toggle('lock', current !== null && lostAt === 0);
@@ -205,7 +233,8 @@ function identify(now: number) {
 // ---- main loop -----------------------------------------------------------------
 const fwd = new THREE.Vector3();
 const want = new THREE.Vector3();
-const look = new THREE.Vector3();
+let nextEdgeBump = 0;
+let lookDown = 0;
 let last = performance.now();
 let started = false;
 
@@ -227,8 +256,14 @@ function stepSub(dt: number) {
   sub.position.y = THREE.MathUtils.clamp(sub.position.y, seabedY(sub.position.x, sub.position.z) + 1.5, SURFACE_Y);
   const r = Math.hypot(sub.position.x, sub.position.z);
   if (r > WORLD_RADIUS) {
+    // The boundary wall glows as you approach; here you just stop, with a soft thump.
     sub.position.x *= WORLD_RADIUS / r;
     sub.position.z *= WORLD_RADIUS / r;
+    s.speed *= 0.6;
+    if (performance.now() > nextEdgeBump) {
+      nextEdgeBump = performance.now() + 1500;
+      sound.bump();
+    }
   }
   sub.rotation.set(s.roll, s.yaw, s.pitch, 'XYZ');
   (sub.userData.prop as THREE.Object3D).rotation.x += dt * (4 + s.speed * 6);
@@ -246,20 +281,17 @@ function stepSub(dt: number) {
   }
 }
 
-function followCamera(dt: number) {
+/** First person: eyes in the glass dome, banking a little in turns, tipping down to read the screen. */
+function placeCamera(t: number) {
   const s = subState;
-  const back = new THREE.Vector3(-Math.cos(s.yaw), 0, Math.sin(s.yaw)).multiplyScalar(9);
-  want.copy(sub.position).add(back);
-  want.y += 3.4 - s.pitch * 3;
-  if (!camReady) camPos.copy(want);
-  camPos.lerp(want, 1 - Math.exp(-4 * dt));
-  camera.position.copy(camPos);
-  camera.position.y = Math.max(camera.position.y, seabedY(camPos.x, camPos.z) + 0.6);
-  look.copy(sub.position).addScaledVector(fwd, 8);
-  camera.lookAt(look);
+  fwd.set(Math.cos(s.pitch) * Math.cos(s.yaw), Math.sin(s.pitch), -Math.cos(s.pitch) * Math.sin(s.yaw));
+  camera.position.copy(sub.position).addScaledVector(fwd, 0.7);
+  camera.position.y += 0.35 + Math.sin(t * 1.3) * 0.03;
+  camera.lookAt(camera.position.x + fwd.x, camera.position.y + fwd.y, camera.position.z + fwd.z);
+  camera.rotateZ(s.roll * 0.3);
+  camera.rotateX(-lookDown * 0.5);
   camera.updateMatrixWorld();
   camera.matrixWorldInverse.copy(camera.matrixWorld).invert();
-  camReady = true;
 }
 
 function frame(nowMs: number) {
@@ -267,13 +299,22 @@ function frame(nowMs: number) {
   const dt = Math.min(0.05, (nowMs - last) / 1000);
   last = nowMs;
   const t = nowMs / 1000;
-  if (started && !paused) {
+  const running = started && !paused;
+  if (running) {
     stepSub(dt);
-    for (const c of creatures) c.update(dt, t);
+    for (const c of creatures) {
+      if (c.flora) c.obj.visible = camera.position.distanceToSquared(c.position) < PLANT_CULL * PLANT_CULL;
+      c.update(dt, t);
+    }
+    ecology.update(dt);
     fx.update(dt);
-    followCamera(dt);
+  }
+  lookDown += ((paused ? 1 : 0) - lookDown) * Math.min(1, dt * 5);
+  placeCamera(t);
+  if (running) {
     identify(t);
-    world.update(camera.position, t);
+    const edge = world?.update(camera.position, t, sub.position) ?? 0;
+    $('edge').style.opacity = String(Math.max(0, (edge - 0.6) / 0.4));
     sound.update(subState.speed / MAX_SPEED);
   }
   renderer.render(scene, camera);
@@ -281,16 +322,37 @@ function frame(nowMs: number) {
 
 // ---- start ---------------------------------------------------------------------
 for (const sp of SPECIES) portraits.set(sp.id, renderPortrait(renderer, sp));
-followCamera(0.016);
+loadRegion(region);
+placeCamera(0);
 requestAnimationFrame(frame);
 
-$('go').addEventListener('click', () => {
-  sound.start();
-  document.documentElement.requestFullscreen?.().catch(() => {});
-  $('start').hidden = true;
-  $('hud').hidden = false;
-  started = true;
-  last = performance.now();
+let soundOn = false;
+const regionsEl = $('regions');
+for (const r of REGIONS) {
+  const b = document.createElement('button');
+  b.className = 'region';
+  b.dataset.region = r.id;
+  b.setAttribute('aria-label', r.name);
+  b.innerHTML = `<span class="em">${r.emoji}</span><span>${r.name}</span>`;
+  b.addEventListener('click', () => {
+    if (!soundOn) {
+      sound.start();
+      soundOn = true;
+      document.documentElement.requestFullscreen?.().catch(() => {});
+    }
+    if (r !== region) loadRegion(r);
+    $('start').hidden = true;
+    $('hud').hidden = false;
+    started = true;
+    last = performance.now();
+  });
+  regionsEl.append(b);
+}
+// The map button goes back to the dive-site menu.
+$('map').addEventListener('click', () => {
+  started = false;
+  $('hud').hidden = true;
+  $('start').hidden = false;
 });
 document.addEventListener('visibilitychange', () => sound.pause(document.hidden));
 
@@ -303,7 +365,15 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   get target() {
     return current?.sp.id ?? null;
   },
-  creatures,
+  get creatures() {
+    return creatures;
+  },
+  get region() {
+    return region.id;
+  },
+  get ecology() {
+    return ecology;
+  },
   sub,
   subState,
 };

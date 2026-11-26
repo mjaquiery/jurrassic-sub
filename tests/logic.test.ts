@@ -1,7 +1,10 @@
-import { describe, expect, it } from 'vitest';
-import { pickTarget, steerInput, seabedY, type Candidate } from '../src/logic';
-import { SPECIES } from '../src/species';
-import { Creature } from '../src/creatures';
+import * as THREE from 'three';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { edgeGlow, pickTarget, resolveCatch, steerInput, seabedY, WORLD_RADIUS, type Candidate } from '../src/logic';
+import { SPECIES, dietLines } from '../src/species';
+import { REGIONS } from '../src/regions';
+import { Creature, spawnCreatures } from '../src/creatures';
+import { Ecology } from '../src/ecology';
 
 const base: Candidate = { id: 0, ndcX: 0, ndcY: 0, depth: 10, dist: 10, range: 20, apparent: 0.1 };
 
@@ -55,5 +58,120 @@ describe('species', () => {
       expect(c.obj.scale.x).toBeGreaterThan(0);
       expect(Number.isFinite(c.position.y)).toBe(true);
     }
+  });
+});
+
+describe('flora and fauna', () => {
+  it('has flora that sit on the sea floor and fauna that swim above it', () => {
+    for (const sp of SPECIES) {
+      const c = new Creature(0, sp);
+      expect(c.flora).toBe(sp.kind === 'flora');
+      if (c.flora) expect(c.position.y).toBeGreaterThan(seabedY(c.position.x, c.position.z));
+    }
+  });
+  it('only lets things eat species that exist, and flora never eat', () => {
+    const ids = new Set(SPECIES.map((s) => s.id));
+    for (const sp of SPECIES) {
+      for (const e of sp.eats ?? []) expect(ids.has(e)).toBe(true);
+      if (sp.kind === 'flora') expect(sp.eats).toEqual([]);
+    }
+  });
+  it('describes the food web in the info panel', () => {
+    const lio = SPECIES.find((s) => s.id === 'liopleurodon')!;
+    expect(dietLines(lio).join(' ')).toContain('Munches');
+    expect(dietLines(SPECIES.find((s) => s.id === 'seaweed')!).join(' ')).toContain('Ammonite');
+  });
+});
+
+describe('regions', () => {
+  it('only name known species and flora, and spawn them', () => {
+    const ids = new Set(SPECIES.map((s) => s.id));
+    for (const r of REGIONS) {
+      for (const id of [...Object.keys(r.fauna), ...Object.keys(r.flora)]) expect(ids.has(id)).toBe(true);
+      expect(spawnCreatures(r).length).toBe(
+        Object.values(r.fauna).reduce((a, b) => a + b, 0) + Object.values(r.flora).reduce((a, b) => a + b, 0),
+      );
+    }
+  });
+});
+
+describe('boundary and catching', () => {
+  it('glows only near the edge', () => {
+    expect(edgeGlow(0)).toBe(0);
+    expect(edgeGlow(WORLD_RADIUS - 30)).toBe(0);
+    expect(edgeGlow(WORLD_RADIUS - 12)).toBeGreaterThan(0.3);
+    expect(edgeGlow(WORLD_RADIUS)).toBe(1);
+  });
+  it('resolves catches by dice roll', () => {
+    expect(resolveCatch(false, 0.2)).toBe('predator');
+    expect(resolveCatch(false, 0.8)).toBe('escape');
+    expect(resolveCatch(true, 0.1)).toBe('predator');
+    expect(resolveCatch(true, 0.5)).toBe('prey');
+    expect(resolveCatch(true, 0.9)).toBe('escape');
+  });
+});
+
+describe('ecology', () => {
+  afterEach(() => vi.restoreAllMocks());
+  const sp = (id: string) => SPECIES.find((s) => s.id === id)!;
+  const setup = (a: string, b: string) => {
+    const hunter = new Creature(0, sp(a));
+    const prey = new Creature(1, sp(b));
+    hunter.position.set(0, -20, 0);
+    prey.position.set(0.5, -20, 0);
+    const camera = new THREE.PerspectiveCamera();
+    camera.updateMatrixWorld();
+    const calls: string[] = [];
+    const fx = { pop: () => calls.push('pop'), burst: (_a: unknown, _n: number, k: string) => calls.push(k) };
+    const sound = { gulp: () => calls.push('gulp'), pop: () => {}, voice: () => {} };
+    const eco = new Ecology([hunter, prey], fx as never, sound as never, camera, new THREE.Object3D());
+    return { hunter, prey, eco, calls };
+  };
+
+  it('gulps its prey, which pops and comes back somewhere else', () => {
+    const { hunter, prey, eco, calls } = setup('peloneustes', 'belemnite');
+    hunter.hunt(prey);
+    vi.spyOn(Math, 'random').mockReturnValueOnce(0.1).mockReturnValue(0.5);
+    eco.update(0.016);
+    expect(calls).toContain('pop');
+    expect(calls).toContain('gulp');
+    expect(hunter.mood).toBe('chomp');
+    expect(prey.position.distanceTo(hunter.position)).toBeGreaterThan(10);
+  });
+  it('lets prey escape', () => {
+    const { hunter, prey, eco, calls } = setup('peloneustes', 'belemnite');
+    hunter.hunt(prey);
+    vi.spyOn(Math, 'random').mockReturnValueOnce(0.9).mockReturnValue(0.5);
+    eco.update(0.016);
+    expect(calls).not.toContain('pop');
+    expect(prey.mood).toBe('flee');
+    expect(hunter.mood).toBe('wander');
+  });
+  it('fights go either way', () => {
+    const { hunter, prey, eco, calls } = setup('metriorhynchus', 'ophthalmosaurus');
+    hunter.hunt(prey);
+    prey.hunt(hunter);
+    vi.spyOn(Math, 'random').mockReturnValueOnce(0.5).mockReturnValue(0.5);
+    eco.update(0.016);
+    expect(calls).toContain('pop');
+    expect(prey.mood).toBe('chomp'); // the "prey" won this one
+  });
+  it('grazes: ammonite nibbles seaweed, which then grows back', () => {
+    const { hunter: ammo, prey: weed, eco } = setup('ammonite', 'seaweed');
+    ammo.graze(weed);
+    eco.update(0.016);
+    expect(ammo.mood).toBe('chomp');
+    weed.update(0, 0);
+    const small = weed.obj.scale.x;
+    for (let t = 0; t < 30; t += 1) weed.update(1, t);
+    expect(weed.obj.scale.x).toBeGreaterThan(small);
+  });
+  it('starts hunts for hungry predators', () => {
+    const { hunter, prey, eco } = setup('peloneustes', 'belemnite');
+    hunter.hunger = 0;
+    prey.position.set(10, -20, 0);
+    eco.update(0.6);
+    expect(hunter.mood).toBe('hunt');
+    expect(prey.mood).toBe('flee');
   });
 });

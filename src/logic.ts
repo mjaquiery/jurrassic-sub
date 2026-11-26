@@ -57,3 +57,20 @@ export const SURFACE_Y = -4;
 export function seabedY(x: number, z: number): number {
   return -42 + 3 * Math.sin(x * 0.05) * Math.cos(z * 0.04) + 1.5 * Math.sin(x * 0.13 + z * 0.11);
 }
+
+export type CatchResult = 'predator' | 'prey' | 'escape';
+
+/**
+ * What happens when a hunter catches its target. `roll` is 0..1.
+ * A fight (both species eat each other) can go either way; a plain chase is eat or escape.
+ */
+export function resolveCatch(mutual: boolean, roll: number): CatchResult {
+  if (mutual) return roll < 1 / 3 ? 'predator' : roll < 2 / 3 ? 'prey' : 'escape';
+  return roll < 0.5 ? 'predator' : 'escape';
+}
+
+/** How close the sub is to the edge of the zone: 0 well inside, 1 touching the wall. */
+export function edgeGlow(r: number): number {
+  const k = Math.min(1, Math.max(0, (r - (WORLD_RADIUS - 24)) / 24));
+  return k * k * (3 - 2 * k);
+}

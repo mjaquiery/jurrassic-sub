@@ -21,14 +21,32 @@
     <canvas id="scene"></canvas>
 
     <div id="hud" hidden>
+      <div id="frame"></div>
       <div id="reticle"></div>
       <div id="hint">👆</div>
+      <div id="edge">🚧</div>
       <button id="mute" aria-label="Sound on or off">🔊</button>
-      <button id="card" aria-label="Tell me more" hidden>
-        <img id="card-img" alt="" />
-        <span id="card-name"></span>
-        <span class="more">👆</span>
-      </button>
+      <button id="map" aria-label="Choose where to dive">🗺️</button>
+      <div id="kid" aria-hidden="true">
+        <svg viewBox="0 0 100 130">
+          <circle cx="28" cy="38" r="6" />
+          <circle cx="72" cy="38" r="6" />
+          <circle cx="50" cy="34" r="22" />
+          <path d="M44 14 Q50 4 58 12 Q54 16 44 14Z" />
+          <path d="M8 130 C8 84 28 66 50 66 C72 66 92 84 92 130Z" />
+        </svg>
+        <span>1 m</span>
+      </div>
+      <div id="dash">
+        <div class="dials"><i></i><i></i><i></i></div>
+        <button id="screen" aria-label="Tell me more" disabled>
+          <div id="sonar"></div>
+          <img id="screen-img" alt="" />
+          <span id="screen-name"></span>
+          <span class="more">👆</span>
+        </button>
+        <div class="levers"><i></i><i></i></div>
+      </div>
     </div>
 
     <div id="info" hidden>
@@ -45,7 +63,7 @@
 
     <div id="start">
       <h1>Jurassic Sub</h1>
-      <button id="go" aria-label="Start">▶</button>
+      <div id="regions"></div>
       <p>Oxford, 165 million years ago</p>
     </div>
 

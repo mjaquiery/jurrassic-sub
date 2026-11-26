@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { seabedY } from './logic';
+import { edgeGlow, seabedY, WORLD_RADIUS } from './logic';
+import type { Region } from './regions';
 
 export const WATER = 0x1f86b0;
 
@@ -15,23 +16,69 @@ function rng(seed: number) {
 const SNOW_COUNT = 500;
 const SNOW_BOX = 36;
 
+/** Hazard-stripe and bubble pattern for the zone boundary. */
+function wallTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d')!;
+  g.strokeStyle = 'rgba(255,255,255,0.7)';
+  g.lineWidth = 14;
+  for (let i = -2; i < 4; i++) {
+    g.beginPath();
+    g.moveTo(i * 64, 128);
+    g.lineTo(i * 64 + 128, 0);
+    g.stroke();
+  }
+  g.fillStyle = 'rgba(255,255,255,0.9)';
+  for (const [x, y, r] of [[30, 30, 8], [96, 84, 10], [60, 110, 6], [110, 20, 5]]) {
+    g.beginPath();
+    g.arc(x, y, r, 0, Math.PI * 2);
+    g.fill();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(48, 5);
+  return t;
+}
+
 export class World {
+  private root = new THREE.Group();
   private snow: THREE.Points;
   private snowBase = new Float32Array(SNOW_COUNT * 3);
   private shafts: THREE.Mesh[] = [];
+  private wall: THREE.Mesh;
 
-  constructor(scene: THREE.Scene) {
-    const rand = rng(7);
-    scene.background = new THREE.Color(WATER);
-    scene.fog = new THREE.FogExp2(WATER, 0.024);
-    scene.add(new THREE.HemisphereLight(0xcdf3ff, 0x6a7f6a, 2.4));
-    const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+  constructor(
+    private scene: THREE.Scene,
+    private region: Region,
+  ) {
+    const rand = rng(region.seed);
+    scene.background = new THREE.Color(region.water);
+    scene.fog = new THREE.FogExp2(region.water, region.fog);
+    this.root.add(new THREE.HemisphereLight(0xcdf3ff, 0x6a7f6a, 2.4 * region.light));
+    const sun = new THREE.DirectionalLight(0xffffff, 1.6 * region.light);
     sun.position.set(20, 60, 10);
-    scene.add(sun);
+    this.root.add(sun);
+    scene.add(this.root);
 
-    this.addSeabed(scene, rand);
-    this.addDecor(scene, rand);
-    this.addShafts(scene, rand);
+    this.addSeabed(this.root, rand);
+    this.addRocks(this.root, rand);
+    this.addShafts(this.root, rand);
+
+    this.wall = new THREE.Mesh(
+      new THREE.CylinderGeometry(WORLD_RADIUS + 1.5, WORLD_RADIUS + 1.5, 46, 96, 1, true),
+      new THREE.MeshBasicMaterial({
+        map: wallTexture(),
+        color: region.wall,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        fog: false,
+      }),
+    );
+    this.wall.position.y = -26;
+    this.root.add(this.wall);
 
     const pos = new Float32Array(SNOW_COUNT * 3);
     for (let i = 0; i < this.snowBase.length; i++) this.snowBase[i] = rand() * SNOW_BOX * 2;
@@ -42,16 +89,25 @@ export class World {
       new THREE.PointsMaterial({ color: 0xe8fbff, size: 0.16, transparent: true, opacity: 0.55, depthWrite: false }),
     );
     this.snow.frustumCulled = false;
-    scene.add(this.snow);
+    this.root.add(this.snow);
   }
 
-  private addSeabed(scene: THREE.Scene, rand: () => number) {
+  dispose() {
+    this.scene.remove(this.root);
+    this.root.traverse((o) => {
+      const m = o as THREE.Mesh;
+      m.geometry?.dispose();
+      (m.material as THREE.Material | undefined)?.dispose();
+    });
+  }
+
+  private addSeabed(scene: THREE.Object3D, rand: () => number) {
     const geo = new THREE.PlaneGeometry(340, 340, 90, 90);
     geo.rotateX(-Math.PI / 2);
     const p = geo.attributes.position;
     const colors = new Float32Array(p.count * 3);
-    const sand = new THREE.Color(0xcdb98c);
-    const mud = new THREE.Color(0x8d9aa0);
+    const sand = new THREE.Color(this.region.sand);
+    const mud = new THREE.Color(this.region.mud);
     const c = new THREE.Color();
     for (let i = 0; i < p.count; i++) {
       p.setY(i, seabedY(p.getX(i), p.getZ(i)) + (rand() - 0.5) * 0.5);
@@ -63,68 +119,28 @@ export class World {
     scene.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })));
   }
 
-  /** Rocks, corals and sea lilies (crinoids), all instanced so they cost a few draw calls. */
-  private addDecor(scene: THREE.Scene, rand: () => number) {
+  private addRocks(scene: THREE.Object3D, rand: () => number) {
     const m = new THREE.Matrix4();
     const q = new THREE.Quaternion();
     const e = new THREE.Euler();
-    const scatter = (n: number, spread: number, fn: (i: number, x: number, y: number, z: number) => void) => {
-      for (let i = 0; i < n; i++) {
-        const a = rand() * Math.PI * 2;
-        const r = Math.sqrt(rand()) * spread;
-        const x = Math.cos(a) * r;
-        const z = Math.sin(a) * r;
-        fn(i, x, seabedY(x, z), z);
-      }
-    };
-
     const rocks = new THREE.InstancedMesh(
       new THREE.IcosahedronGeometry(1, 0),
       new THREE.MeshLambertMaterial({ color: 0x8793a0, flatShading: true }),
       60,
     );
-    scatter(60, 120, (i, x, y, z) => {
+    for (let i = 0; i < 60; i++) {
+      const a = rand() * Math.PI * 2;
+      const r = Math.sqrt(rand()) * 120;
+      const x = Math.cos(a) * r;
+      const z = Math.sin(a) * r;
       const s = 0.8 + rand() * 2.5;
       q.setFromEuler(e.set(rand() * 3, rand() * 3, rand() * 3));
-      rocks.setMatrixAt(i, m.compose(new THREE.Vector3(x, y, z), q, new THREE.Vector3(s * 1.3, s * 0.8, s)));
-    });
+      rocks.setMatrixAt(i, m.compose(new THREE.Vector3(x, seabedY(x, z), z), q, new THREE.Vector3(s * 1.3, s * 0.8, s)));
+    }
     scene.add(rocks);
-
-    const palette = [0xff7f8a, 0xffb36b, 0xc79bff, 0x7be0c8];
-    const corals = new THREE.InstancedMesh(
-      new THREE.IcosahedronGeometry(1, 1),
-      new THREE.MeshLambertMaterial({ flatShading: true }),
-      90,
-    );
-    scatter(90, 120, (i, x, y, z) => {
-      const s = 0.4 + rand() * 1.1;
-      corals.setMatrixAt(i, m.compose(new THREE.Vector3(x, y + s * 0.5, z), q.identity(), new THREE.Vector3(s, s * 1.3, s)));
-      corals.setColorAt(i, new THREE.Color(palette[i % palette.length]));
-    });
-    scene.add(corals);
-
-    const stems = new THREE.InstancedMesh(
-      new THREE.CylinderGeometry(0.07, 0.1, 1, 6),
-      new THREE.MeshLambertMaterial({ color: 0xd9a6c2, flatShading: true }),
-      80,
-    );
-    const cups = new THREE.InstancedMesh(
-      new THREE.ConeGeometry(0.5, 0.7, 7, 1, true),
-      new THREE.MeshLambertMaterial({ color: 0xff8fab, flatShading: true, side: THREE.DoubleSide }),
-      80,
-    );
-    scatter(80, 120, (i, x, y, z) => {
-      const h = 1.5 + rand() * 2.5;
-      stems.setMatrixAt(i, m.compose(new THREE.Vector3(x, y + h / 2, z), q.identity(), new THREE.Vector3(1, h, 1)));
-      const s = 0.8 + rand() * 0.6;
-      // Cone point down so it opens like a flower cup.
-      q.setFromEuler(e.set(Math.PI, 0, 0));
-      cups.setMatrixAt(i, m.compose(new THREE.Vector3(x, y + h + 0.3, z), q, new THREE.Vector3(s, s, s)));
-    });
-    scene.add(stems, cups);
   }
 
-  private addShafts(scene: THREE.Scene, rand: () => number) {
+  private addShafts(scene: THREE.Object3D, rand: () => number) {
     const geo = new THREE.CylinderGeometry(14, 3, 90, 12, 1, true);
     const p = geo.attributes.position;
     const col = new Float32Array(p.count * 3);
@@ -155,7 +171,13 @@ export class World {
     }
   }
 
-  update(cam: THREE.Vector3, t: number) {
+  /** Advances the ambience and returns how close the sub is to the boundary (0..1). */
+  update(cam: THREE.Vector3, t: number, sub: THREE.Vector3): number {
+    const edge = edgeGlow(Math.hypot(sub.x, sub.z));
+    const mat = this.wall.material as THREE.MeshBasicMaterial;
+    mat.opacity = edge * (0.5 + 0.15 * Math.sin(t * 4));
+    this.wall.visible = edge > 0.001;
+    mat.map!.offset.y = -t * 0.08;
     for (const s of this.shafts) s.rotation.x = Math.sin(t * 0.15 + s.userData.phase) * 0.08;
     const pos = this.snow.geometry.attributes.position as THREE.BufferAttribute;
     const L = SNOW_BOX * 2;
@@ -170,5 +192,6 @@ export class World {
       );
     }
     pos.needsUpdate = true;
+    return edge;
   }
 }
