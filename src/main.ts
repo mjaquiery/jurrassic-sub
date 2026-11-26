@@ -326,6 +326,7 @@ loadRegion(region);
 placeCamera(0);
 requestAnimationFrame(frame);
 
+$('version').textContent = 'v' + __APP_VERSION__;
 let soundOn = false;
 const regionsEl = $('regions');
 for (const r of REGIONS) {

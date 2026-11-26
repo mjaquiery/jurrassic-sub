@@ -7,6 +7,7 @@ test('dive, find a creature, read about it', async ({ page }) => {
 
   await page.goto('/');
   await expect(page.locator('.region')).toHaveCount(3);
+  await expect(page.locator('#version')).toHaveText(/^v\d+\.\d+\.\d+$/);
   await page.screenshot({ path: 'shots/1-start.png' });
   await page.click('[data-region="clay-bay"]');
   await expect(page.locator('#start')).toBeHidden();

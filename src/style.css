@@ -352,6 +352,13 @@ button {
   font-size: 22px;
   opacity: 0.8;
 }
+#version {
+  position: absolute;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  right: max(14px, env(safe-area-inset-right));
+  font-size: 13px;
+  opacity: 0.45;
+}
 #regions {
   display: flex;
   flex-wrap: wrap;
