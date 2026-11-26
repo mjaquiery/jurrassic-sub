@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <title>Jurassic Sub</title>
+    <meta name="description" content="A gentle underwater adventure through the Jurassic seas over Oxford." />
+    <meta name="theme-color" content="#1f86b0" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Jurassic Sub" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+  </head>
+  <body>
+    <canvas id="scene"></canvas>
+
+    <div id="hud" hidden>
+      <div id="reticle"></div>
+      <div id="hint">👆</div>
+      <button id="mute" aria-label="Sound on or off">🔊</button>
+      <button id="card" aria-label="Tell me more" hidden>
+        <img id="card-img" alt="" />
+        <span id="card-name"></span>
+        <span class="more">👆</span>
+      </button>
+    </div>
+
+    <div id="info" hidden>
+      <div id="info-box">
+        <button id="info-close" aria-label="Close">✕</button>
+        <img id="info-img" alt="" />
+        <div id="info-text">
+          <h1 id="info-name"></h1>
+          <ul id="info-facts"></ul>
+          <p id="info-museum"></p>
+        </div>
+      </div>
+    </div>
+
+    <div id="start">
+      <h1>Jurassic Sub</h1>
+      <button id="go" aria-label="Start">▶</button>
+      <p>Oxford, 165 million years ago</p>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
