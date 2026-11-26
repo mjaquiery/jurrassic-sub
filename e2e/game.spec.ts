@@ -80,9 +80,10 @@ test('plants can be inspected too', async ({ page }) => {
     const g = (window as any).__jsub;
     const c = g.creatures.find((x: any) => x.sp.id === 'sponge');
     c.update = () => {};
-    c.position.set(0, c.position.y, 0);
+    // The sea floor at the origin is at y = -42; a sponge there is about 4 m tall.
+    c.position.set(0, -40, 0);
     for (const o of g.creatures) if (o !== c) o.position.set(500, -20, 500);
-    g.sub.position.set(8, c.position.y, 0);
+    g.sub.position.set(8, -39, 0);
     g.subState.yaw = Math.PI;
     g.subState.pitch = 0;
     g.subState.speed = 0;
