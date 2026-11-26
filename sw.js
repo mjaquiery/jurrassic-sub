@@ -1,6 +1,6 @@
 // Generated at build time.
-const VERSION = "e4c465a652a0";
-const FILES = ["./","assets/index-8Scxifrz.js","assets/index-CeaR2Sfn.css","icons/apple-touch-icon.png","icons/icon-192.png","icons/icon-512.png","icons/icon.svg","index.html","manifest.webmanifest"];
+const VERSION = "0367cc21b7b7";
+const FILES = ["./","assets/index-D6nRfQXE.css","assets/index-Ds7mEtuB.js","icons/apple-touch-icon.png","icons/icon-192.png","icons/icon-512.png","icons/icon.svg","index.html","manifest.webmanifest"];
 const SCOPE = new URL(self.registration.scope);
 const CACHE = 'jurassic-sub:' + SCOPE.pathname + ':' + VERSION;
 const STAGE = SCOPE.pathname + 'stage/';
