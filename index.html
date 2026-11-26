@@ -16,8 +16,8 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
-    <script type="module" crossorigin src="./assets/index-Ds7mEtuB.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-D6nRfQXE.css">
+    <script type="module" crossorigin src="./assets/index-B4VUq_ZJ.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-CD6AfNRs.css">
   </head>
   <body>
     <canvas id="scene"></canvas>
@@ -53,7 +53,9 @@
 
     <div id="info" hidden>
       <div id="info-box">
-        <button id="info-close" aria-label="Close">✕</button>
+        <button id="info-close" aria-label="Close">
+          <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 1 9 9M9 1 1 9" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" /></svg>
+        </button>
         <img id="info-img" alt="" />
         <div id="info-text">
           <h1 id="info-name"></h1>
@@ -68,6 +70,11 @@
       <div id="regions"></div>
       <p>Oxford, 165 million years ago</p>
       <small id="version"></small>
+    </div>
+
+    <div id="loading" hidden>
+      <div id="loading-emoji"></div>
+      <div class="dots"><i></i><i></i><i></i></div>
     </div>
 
   </body>
